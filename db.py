@@ -1,8 +1,13 @@
-from sqlmodel import create_engine, Session, select, SQLModel
+from sqlmodel import create_engine, Session, SQLModel, select, update, delete
 from models import Users
+import os
 
-sqlite_file_name = "/home/cotto/side_projects/fastapi-kakani/nudge.sqlite3"
-sqlite_url = f"sqlite:///{sqlite_file_name}"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# sqlite_file_name = "/home/cotto/side_projects/fastapi-kakani/nudge.sqlite3"
+sqlite_file_name = 'nudge.sqlite3'
+sqlite_db_path = os.path.join(BASE_DIR, sqlite_file_name)
+print(f"sqlite_db_path: {sqlite_db_path}")
+sqlite_url = f"sqlite:///{sqlite_db_path}"
 
 
 def select_users():

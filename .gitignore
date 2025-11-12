@@ -1,0 +1,77 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# PyInstaller
+#  Usually creates build/ and dist/ folders
+build/
+dist/
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Django / Flask stuff
+*.log
+local_settings.py
+db.sqlite3
+instance/
+.webassets-cache
+
+# Scrapy
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# IDE/editor folders
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Mac / Windows / Linux OS files
+.DS_Store
+Thumbs.db
+*.tmp
+
+# Custom
+# Add your app-specific folders below
+# e.g. compiled assets, secrets, etc.
+secrets.json
+*.env
