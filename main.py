@@ -1,18 +1,31 @@
-from fastapi import FastAPI
-from models import Users 
+from fastapi import FastAPI, HTTPException, status
+from models import Users
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from db import engine, Session, select, update
 from sqlalchemy import func
 from typing import Iterable, Mapping
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-@app.get("/users/{username}/credentials/{password}")
-async def get_user(username: str, password: str):
+class LoginIn(BaseModel):
+    username: str
+    password: str
+
+@app.post("/login")
+async def login(body: LoginIn):
+    username = body.username
+    password = body.password
+
     if username == None or password == None:
-        return {
-            "message": f"Unable to login",
-            "success": False,
-        }
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing credentials")
 
     statement = select(Users).where(Users.Username==username).where(Users.Password==password)
     results = execute_statement(statement)
@@ -22,16 +35,10 @@ async def get_user(username: str, password: str):
         users_found += 1
 
     if users_found <= 0:
-        return {
-            "message": f"User not found, double check credentials",
-            "success": False,
-        }
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     elif users_found > 1:
-        return {
-            "message": f"Error: Found multiple accounts with these credentials. Please report to developers",
-            "success": False,
-        }
-
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Multiple accounts")
+    print(f"Movement made")
     return {
         "message": f"User Authenticated (test): {user.Username}",
         "success": True,
