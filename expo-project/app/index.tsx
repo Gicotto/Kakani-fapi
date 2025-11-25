@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Text,
   View,
@@ -14,21 +14,28 @@ import {
 // iOS Simulator can use localhost; Android Emulator needs 10.0.2.2.
 // When testing on a real device, replace with your machine's LAN IP, e.g. http://192.168.1.42:8000
 const getBaseUrl = () => {
-  if (Platform.OS === "android") return "http://10.0.2.2:8000";
   return "http://127.0.0.1:8000";
   // return "http://10.1.64.76:8000";
 };
 const API_BASE_URL = getBaseUrl();
 
 export default function Login() {
+
+  // logged in user attempt
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+
+  // create user
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+
   const [trueUsername, setTrueUsername] = useState("");
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [authenticated, setAuthentication] = useState(false);
-  const [view, setView] = useState("login"); // reserved for future use
+  const [view, setView] = useState("login"); // "login" or "register"
 
   const handleLogin = async () => {
     setError("");
@@ -83,6 +90,56 @@ export default function Login() {
     }
   };
 
+  const createAccount = async () => {
+    setError("");
+    if (!newUsername || !newPassword) {
+      setError("Please enter both username and password.");
+      return;
+    }
+
+    setLoading(true);
+    try { 
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15000);
+
+      const res = await fetch(`${API_BASE_URL}/users/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ username: newUsername, password: newPassword, email: newEmail }),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+
+      const maybeJson = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        const msg =
+          maybeJson?.detail ||
+          maybeJson?.message ||
+          `Account creation failed (${res.status})`;
+        setError(msg);
+        return;
+      }
+
+      const data = maybeJson;
+      setAuthentication(true);
+      setTrueUsername(newUsername);
+
+      Alert.alert("Account Created", data?.message ?? "Welcome!");
+    } catch (e: any) {
+      setError(
+        e?.name === "AbortError"
+          ? "Create Account timed out. Check your connection."
+          : "Unable to reach server. Is it running on port 8000?"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleLogout = async () => {
     setUsername("");
     setTrueUsername("");
@@ -92,8 +149,22 @@ export default function Login() {
 
   const onForgot = () =>
     Alert.alert("Forgot Password", "Hook this up to your reset flow.");
-  const onRegister = () =>
-    Alert.alert("Register", "Hook this up to your sign-up screen.");
+  
+  const onRegister = () => {
+    setView("register");
+    setError("");
+  };
+
+  const onBackToLogin = () => {
+    setView("login");
+    setError("");
+  };
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      document.title = "Nudge";
+    }
+  }, []);
 
   const displayName = trueUsername || username || "Friend";
 
@@ -161,7 +232,66 @@ export default function Login() {
         </View>
       </View>
     </View>
+  ) : view === "register" ? (
+    // REGISTER VIEW
+    <View style={styles.container}>
+      <View style={styles.loginContainer}>
+        <Text style={styles.loginTitle}>Create Account</Text>
+        <Text style={styles.loginSubtitle}>Sign up to get started</Text>
+
+        <TextInput
+          style={styles.input}
+          placeholder="Username"
+          placeholderTextColor="#94a3b8"
+          autoCapitalize="none"
+          value={newUsername}
+          onChangeText={setNewUsername}
+          editable={!loading}
+        />
+
+        <TextInput
+          style={styles.input}
+          placeholder="Password"
+          placeholderTextColor="#94a3b8"
+          secureTextEntry
+          value={newPassword}
+          onChangeText={setNewPassword}
+          editable={!loading}
+        />
+
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          placeholderTextColor="#94a3b8"
+          autoCapitalize="none"
+          value={newEmail}
+          onChangeText={setNewEmail}
+          editable={!loading}
+        />
+
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+        <TouchableOpacity
+          style={[styles.loginButton, loading && { opacity: 0.6 }]}
+          onPress={createAccount}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator />
+          ) : (
+            <Text style={styles.loginButtonText}>Create Account</Text>
+          )}
+        </TouchableOpacity>
+
+        <View style={styles.loginLinks}>
+          <TouchableOpacity onPress={onBackToLogin} disabled={loading}>
+            <Text style={styles.linkText}>Back to Login</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
   ) : (
+    // LOGIN VIEW
     <View style={styles.container}>
       <View style={styles.loginContainer}>
         <Text style={styles.loginTitle}>Welcome Back</Text>
@@ -411,4 +541,3 @@ const styles = StyleSheet.create({
     color: "#6b7280",
   },
 });
-
