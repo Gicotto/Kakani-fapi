@@ -30,7 +30,7 @@ const createFetchWithTimeout = (timeoutMs: number = 15000) => {
 export const api = {
   login: async (credentials: LoginCredentials) => {
     const fetchWithTimeout = createFetchWithTimeout();
-    const res = await fetchWithTimeout(`${API_BASE_URL}/login`, {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/auth/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -76,7 +76,7 @@ export const api = {
 
   getActiveUsers: async () => {
     const fetchWithTimeout = createFetchWithTimeout();
-    const res = await fetchWithTimeout(`${API_BASE_URL}/getactiveusers/`, {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/users/active/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

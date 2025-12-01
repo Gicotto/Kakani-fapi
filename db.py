@@ -1,5 +1,5 @@
 from sqlmodel import create_engine, Session, SQLModel, select, update, delete
-from models import Users
+from models.database import Users
 import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

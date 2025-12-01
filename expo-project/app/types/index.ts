@@ -12,6 +12,7 @@ export interface RegisterCredentials {
   username: string;
   password: string;
   email: string;
+  phone: string;
 }
 
-export type ViewType = "login" | "register" | "home" | "newMessage";
+export type ViewType = "login" | "register" | "home" | "newMessage" | "sendInvite";

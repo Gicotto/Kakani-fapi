@@ -12,22 +12,28 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 function HeaderContent() {
   const { authenticated, logout, navigateToHome, navigateToNewMessage, navigateToSendInvite, currentView } = useAuth();
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [notificationsMenuOpen, setNotificationsMenuOpen] = useState(false);
 
   // Close dropdown when clicking outside (web only)
   useEffect(() => {
-    if (Platform.OS === "web" && accountMenuOpen) {
-      const handleClickOutside = () => setAccountMenuOpen(false);
+    if (Platform.OS === "web" && (accountMenuOpen || notificationsMenuOpen)) {
+      const handleClickOutside = () => {
+        setAccountMenuOpen(false);
+        setNotificationsMenuOpen(false);
+      };
       document.addEventListener("click", handleClickOutside);
       return () => document.removeEventListener("click", handleClickOutside);
     }
-  }, [accountMenuOpen]);
+  }, [accountMenuOpen, notificationsMenuOpen]);
 
   const handleLogout = async () => {
     setAccountMenuOpen(false);
+    setNotificationsMenuOpen(false);
     await logout();
   };
 
   const handleNavigation = (navigateFn: () => void) => {
+    setNotificationsMenuOpen(false);
     setAccountMenuOpen(false);
     navigateFn();
   };
@@ -72,22 +78,83 @@ function HeaderContent() {
             ✉️ Invite a Friend
           </Text>
         </TouchableOpacity>
-
       </View>
 
-      {/* Right side - Account Menu */}
+      {/* Right side - Notifications & Account Menu */}
       <View style={styles.headerRight}>
-        <TouchableOpacity
-          style={styles.accountButton}
-          onPress={(e) => {
-            if (Platform.OS === "web") {
-              e.stopPropagation();
-            }
-            setAccountMenuOpen(!accountMenuOpen);
-          }}
-        >
-          <Text style={styles.accountButtonText}>👤</Text>
-        </TouchableOpacity>
+        {/* Buttons Container */}
+        <View style={styles.iconButtonsContainer}>
+          {/* Notifications Button */}
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={(e) => {
+              if (Platform.OS === "web") {
+                e.stopPropagation();
+              }
+              setAccountMenuOpen(false); // Close account menu
+              setNotificationsMenuOpen(!notificationsMenuOpen);
+            }}
+          >
+            <Text style={styles.iconButtonText}>🔔</Text>
+          </TouchableOpacity>
+
+          {/* Account Button */}
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={(e) => {
+              if (Platform.OS === "web") {
+                e.stopPropagation();
+              }
+              setNotificationsMenuOpen(false); // Close notifications menu
+              setAccountMenuOpen(!accountMenuOpen);
+            }}
+          >
+            <Text style={styles.iconButtonText}>👤</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Notifications Dropdown */}
+        {notificationsMenuOpen && (
+          <View style={styles.dropdownMenu}>
+            <TouchableOpacity 
+              style={styles.dropdownItem}
+              onPress={() => {
+                setNotificationsMenuOpen(false);
+              }}
+            >
+              <Text style={styles.dropdownText}>View All Notifications</Text>
+            </TouchableOpacity>
+
+            <View style={styles.dropdownDivider} />
+
+            <TouchableOpacity 
+              style={styles.dropdownItem}
+              onPress={() => {
+                setNotificationsMenuOpen(false);
+              }}
+            >
+              <Text style={styles.dropdownText}>📬 Notification 1</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.dropdownItem}
+              onPress={() => {
+                setNotificationsMenuOpen(false);
+              }}
+            >
+              <Text style={styles.dropdownText}>💬 Notification 2</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.dropdownItem}
+              onPress={() => {
+                setNotificationsMenuOpen(false);
+              }}
+            >
+              <Text style={styles.dropdownText}>✉️ Notification 3</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Account Dropdown */}
         {accountMenuOpen && (
@@ -205,7 +272,12 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     position: "relative",
   },
-  accountButton: {
+  iconButtonsContainer: {
+    flexDirection: "row",
+    gap: 12,
+    alignItems: "center",
+  },
+  iconButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -213,14 +285,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  accountButtonText: {
+  iconButtonText: {
     fontSize: 20,
   },
   dropdownMenu: {
     position: "absolute",
     top: 48,
     right: 0,
-    width: 200,
+    width: 220,
     backgroundColor: "#ffffff",
     borderRadius: 12,
     paddingVertical: 8,
