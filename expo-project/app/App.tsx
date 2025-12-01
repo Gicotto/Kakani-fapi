@@ -11,6 +11,7 @@ import RegisterView from "./components/RegisterView";
 import HomeView from "./components/HomeView";
 import NewMessageView from "./components/NewMessageView";
 import MessagesView from "./components/MessagesView";
+import SendInvitesView from "./components/SendInvites.tsx";
 
 export default function App() {
   const {
@@ -24,6 +25,7 @@ export default function App() {
     navigateToHome,
     navigateToNewMessage,
     navigateToMessages,
+    navigateToSendInvite,
     navigateToLogin,
     navigateToRegister,
   } = useAuth();
@@ -98,6 +100,16 @@ export default function App() {
           onBack={handleBackFromMessages}
         />
       )}
+
+      {currentView === "sendInvite" && (
+        <SendInvitesView
+          currentUsername={username}
+          currentUserUuid={userUuid || username}
+          onBack={navigateToHome}
+          onSendInvite={navigateToSendInvite}
+        />
+      )}
+
     </View>
   );
 }

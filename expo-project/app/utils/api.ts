@@ -119,6 +119,28 @@ export const api = {
     return data;
   },
 
+  sendInvite: async (fromUser: string, toUser1: string, toUser2: string, invite: string) => {
+    const fetchWithTimeout = createFetchWithTimeout();
+    const res = await fetchWithTimeout(`${API_BASE_URL}/invites/send`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ fromUser, toUser1, toUser2, invite }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.detail || data?.message || `Failed to send invite (${res.status})`
+      );
+    }
+
+    return data;
+  },
+
   getMessages: async (currentUser: string, otherUser: string) => {
     const fetchWithTimeout = createFetchWithTimeout();
     const res = await fetchWithTimeout(

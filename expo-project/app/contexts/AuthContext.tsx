@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SESSION_KEY = '@nudge_session';
 
-type ViewType = "login" | "register" | "home" | "newMessage" | "messages";
+type ViewType = "login" | "register" | "home" | "newMessage" | "messages" | "sendInvite" ;
 
 interface AuthContextType {
   // Auth state
@@ -27,6 +27,7 @@ interface AuthContextType {
   navigateToHome: () => void;
   navigateToNewMessage: () => void;
   navigateToMessages: (recipientUsername: string, recipientUuid: string) => void;
+  navigateToSendInvite: () => void;
   navigateToLogin: () => void;
   navigateToRegister: () => void;
 }
@@ -125,6 +126,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCurrentView("newMessage");
   };
 
+  const navigateToSendInvite = () => {
+    setCurrentView("sendInvite");
+  };
+
   const navigateToMessages = (recipientUsername: string, recipientUuid: string) => {
     setActiveConversation({
       recipientUsername,
@@ -154,6 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         navigateToHome,
         navigateToNewMessage,
+        navigateToSendInvite,
         navigateToMessages,
         navigateToLogin,
         navigateToRegister,

@@ -10,7 +10,7 @@ import {
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
 function HeaderContent() {
-  const { authenticated, logout, navigateToHome, navigateToNewMessage, currentView } = useAuth();
+  const { authenticated, logout, navigateToHome, navigateToNewMessage, navigateToSendInvite, currentView } = useAuth();
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
   // Close dropdown when clicking outside (web only)
@@ -63,6 +63,16 @@ function HeaderContent() {
             ✉️ New Message
           </Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.navButton, currentView === "sendInvite" && styles.navButtonActive]}
+          onPress={() => handleNavigation(navigateToSendInvite)}
+        >
+          <Text style={[styles.navButtonText, currentView === "sendInvite" && styles.navButtonTextActive]}>
+            ✉️ Invite a Friend
+          </Text>
+        </TouchableOpacity>
+
       </View>
 
       {/* Right side - Account Menu */}
