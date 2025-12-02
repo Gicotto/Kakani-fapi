@@ -3,30 +3,81 @@ from db import Session, engine, select, update
 from sqlalchemy import func
 from database.operations import execute_statement, update_fields
 from models.database import Users
-from models.schemas import CreateUserRequest
+from models.schemas import CreateUserRequest, ChangePasswordRequest
 import uuid
 import bcrypt
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-@router.get("/changepassword/")
-async def change_password(username: str, password: str, new_password: str):
-    print(f"Username: {username} | password: {password} | new_password {new_password}")
-    if username is None or password is None or new_password is None:
-        return {"message": "No user matched, unable to change password if no user found"}
-   
-    statement = select(Users).where(Users.Username == username).where(Users.Password == password)
-    update_dict = {"Password": new_password}
-    updated = update_fields(statement, update_dict)
-    if updated <= 0:
+@router.post("/changepassword/")
+async def change_password(request: ChangePasswordRequest):
+    """Change user password with bcrypt encryption"""
+    print(f"=== CHANGE PASSWORD REQUEST ===")
+    print(f"Username: {request.username}")
+    
+    if not request.username or not request.current_password or not request.new_password:
         return {
-            "message": f"Unable to change password",
             "success": False,
+            "error": "All fields are required"
         }
-    return {
-        "message": f"Password updated successfully",
-        "success": True,
-    }
+    
+    # Validate new password strength (optional but recommended)
+    if len(request.new_password) < 6:
+        return {
+            "success": False,
+            "error": "New password must be at least 6 characters long"
+        }
+    
+    with Session(engine) as session:
+        # Get user by username
+        stmt = select(Users).where(Users.Username == request.username)
+        user = session.exec(stmt).first()
+        
+        if not user:
+            print("User not found")
+            return {
+                "success": False,
+                "error": "Invalid credentials"
+            }
+        
+        # Verify current password with bcrypt
+        try:
+            is_valid = bcrypt.checkpw(
+                request.current_password.encode("utf-8"),
+                user.Password.encode("utf-8")
+            )
+            print(f"Current password valid: {is_valid}")
+        except Exception as e:
+            print(f"Error checking password: {e}")
+            return {
+                "success": False,
+                "error": "Password verification failed"
+            }
+        
+        if not is_valid:
+            print("Current password incorrect")
+            return {
+                "success": False,
+                "error": "Current password is incorrect"
+            }
+        
+        # Hash the new password
+        hashed_new_pw = bcrypt.hashpw(
+            request.new_password.encode("utf-8"), 
+            bcrypt.gensalt()
+        ).decode()
+        print(f"New password hashed: {hashed_new_pw[:20]}...")
+        
+        # Update password
+        user.Password = hashed_new_pw
+        session.add(user)
+        session.commit()
+        
+        print(f"✓ Password updated successfully for {user.Username}")
+        return {
+            "success": True,
+            "message": "Password updated successfully"
+        }
 
 @router.get("/")
 async def get_user(username: str | None = None):
@@ -133,4 +184,34 @@ async def get_active_users():
         return {
             "success": False,
             "message": str(e)
+        }
+
+@router.get("/details")
+async def get_user_details(username: str):
+    """Get detailed user information by username"""
+    if not username:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username is required"
+        )
+    
+    with Session(engine) as session:
+        stmt = select(Users).where(Users.Username == username)
+        user = session.exec(stmt).first()
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        return {
+            "success": True,
+            "user_id": user.Uuid,
+            "username": user.Username,
+            "email": user.Email,
+            "phone": user.phone,
+            "active": bool(user.active),
+            "isAdmin": bool(user.isAdmin),
+            "last_logged_in_at": user.last_logged_in_at,
         }

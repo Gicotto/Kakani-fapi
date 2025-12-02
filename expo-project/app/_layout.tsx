@@ -10,7 +10,7 @@ import {
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
 function HeaderContent() {
-  const { authenticated, logout, navigateToHome, navigateToNewMessage, navigateToSendInvite, currentView } = useAuth();
+  const { authenticated, logout, navigateToHome, navigateToNewMessage, navigateToSendInvite, navigateToAccountSettings, navigateToChangePassword, currentView } = useAuth();
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [notificationsMenuOpen, setNotificationsMenuOpen] = useState(false);
 
@@ -174,6 +174,7 @@ function HeaderContent() {
               onPress={() => {
                 setAccountMenuOpen(false);
                 // Navigate to account settings
+                navigateToAccountSettings();
               }}
             >
               <Text style={styles.dropdownText}>Account Settings</Text>

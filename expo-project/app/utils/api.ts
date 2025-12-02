@@ -199,4 +199,51 @@ export const api = {
 
     return data.threads || [];
   },
+
+  getUserDetails: async (username: string) => {
+    const fetchWithTimeout = createFetchWithTimeout();
+    const res = await fetchWithTimeout(`${API_BASE_URL}/users/details?username=${username}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(
+        data?.detail ||
+          data?.message ||
+          `Failed to fetch user details (${res.status})`
+      );
+    }
+    return data;
+  },
+
+  changePassword: async (data: {
+    username: string;
+    current_password: string;
+    new_password: string;
+  }) => {
+    const fetchWithTimeout = createFetchWithTimeout();
+    const res = await fetchWithTimeout(`${API_BASE_URL}/users/changepassword/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+    const responseData = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(
+        responseData?.detail ||
+          responseData?.error ||
+          responseData?.message ||
+          `Failed to change password (${res.status})`
+      );
+    }
+    return responseData;
+  },
+
 };

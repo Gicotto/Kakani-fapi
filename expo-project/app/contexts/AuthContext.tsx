@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SESSION_KEY = '@nudge_session';
 
-type ViewType = "login" | "register" | "home" | "newMessage" | "messages" | "sendInvite" ;
+type ViewType = "login" | "register" | "home" | "newMessage" | "messages" | "sendInvite" | "accountSettings" | "changePassword";
 
 interface AuthContextType {
   // Auth state
@@ -30,6 +30,8 @@ interface AuthContextType {
   navigateToSendInvite: () => void;
   navigateToLogin: () => void;
   navigateToRegister: () => void;
+  navigateToAccountSettings: () => void;
+  navigateToChangePassword: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -146,6 +148,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCurrentView("register");
   };
 
+  const navigateToAccountSettings = () => {
+    setCurrentView("accountSettings");
+  }; 
+
+  const navigateToChangePassword = () => {
+    setCurrentView("changePassword");
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -163,6 +173,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         navigateToMessages,
         navigateToLogin,
         navigateToRegister,
+        navigateToAccountSettings,
+        navigateToChangePassword,
       }}
     >
       {children}

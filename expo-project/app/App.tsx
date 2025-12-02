@@ -12,6 +12,8 @@ import HomeView from "./components/HomeView";
 import NewMessageView from "./components/NewMessageView";
 import MessagesView from "./components/MessagesView";
 import SendInvitesView from "./components/SendInvites.tsx";
+import AccountSettingsView from "./components/AccountSettingsView.tsx";
+import ChangePasswordView from "./components/ChangePasswordView.tsx";
 
 export default function App() {
   const {
@@ -28,6 +30,8 @@ export default function App() {
     navigateToSendInvite,
     navigateToLogin,
     navigateToRegister,
+    navigateToAccountSettings,
+    navigateToChangePassword,
   } = useAuth();
 
   const handleLoginSuccess = (loggedInUsername: string, uuid?: string) => {
@@ -107,6 +111,23 @@ export default function App() {
           currentUserUuid={userUuid || username}
           onBack={navigateToHome}
           onSendInvite={navigateToSendInvite}
+        />
+      )}
+      
+      {currentView === "accountSettings" && (
+        <AccountSettingsView
+          currentUsername={username}
+          currentUserUuid={userUuid || username}
+          onBack={navigateToHome}
+          onChangePassword={navigateToChangePassword}
+        />
+      )}
+
+      {currentView === "changePassword" && (
+        <ChangePasswordView
+          currentUsername={username}
+          currentUserUuid={userUuid || username}
+          onBack={navigateToHome}
         />
       )}
 

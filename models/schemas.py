@@ -44,3 +44,8 @@ class CreateUserRequest(BaseModel):
     password: str
     email: Optional[str] = None
     phone: Optional[str] = None
+
+class ChangePasswordRequest(BaseModel):
+    username: str
+    current_password: str
+    new_password: str
