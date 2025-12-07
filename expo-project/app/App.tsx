@@ -14,6 +14,8 @@ import MessagesView from "./components/MessagesView";
 import SendInvitesView from "./components/SendInvites.tsx";
 import AccountSettingsView from "./components/AccountSettingsView.tsx";
 import ChangePasswordView from "./components/ChangePasswordView.tsx";
+import FriendsHub from "./components/FriendsHub.tsx";
+import NotificationsView from "./components/NotificationsView.tsx"
 
 export default function App() {
   const {
@@ -32,6 +34,8 @@ export default function App() {
     navigateToRegister,
     navigateToAccountSettings,
     navigateToChangePassword,
+    navigateToFriendsHub,
+    navigateToNotifications,
   } = useAuth();
 
   const handleLoginSuccess = (loggedInUsername: string, uuid?: string) => {
@@ -131,6 +135,22 @@ export default function App() {
         />
       )}
 
+      {currentView === "friendsHub" && (
+        <FriendsHub
+          currentUsername={username}
+          currentUserUuid={userUuid || username}
+          onBack={navigateToHome}
+        />
+      )}
+      
+      {currentView === "notifications" && (
+        <NotificationsView
+          currentUsername={username}
+          currentUserUuid={userUuid || username}
+          onBack={navigateToHome}
+        />
+      )}
+  
     </View>
   );
 }

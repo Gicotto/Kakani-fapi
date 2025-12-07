@@ -246,4 +246,235 @@ export const api = {
     return responseData;
   },
 
+  searchUsers: async (username: string) => {
+    const fetchWithTimeout = createFetchWithTimeout();
+    const res = await fetchWithTimeout(`${API_BASE_URL}/friends/search?query=${encodeURIComponent(username)}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(
+        data?.detail || 
+          data?.message ||
+          `Failed to find users (${res.status})`
+      );
+    }
+    return data;
+  },
+
+  sendFriendRequest: async (data: {
+    requester_username: string;
+    recipient_username: string;
+  }) => {
+    const fetchWithTimeout = createFetchWithTimeout();
+    const res = await fetchWithTimeout(`${API_BASE_URL}/friends/request/send`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+    const responseData = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(
+        responseData?.detail ||
+          responseData?.error ||
+          responseData?.message ||
+          `Failed to send friend request (${res.status})`
+      );
+    }
+    return responseData;
+  },
+
+  getRelationshipStatus: async (username: string, otherUsername: string) => {
+    const fetchWithTimeout = createFetchWithTimeout();
+    const res = await fetchWithTimeout(`${API_BASE_URL}/friends/relationship-status?username=${encodeURIComponent(username)}&other_username=${encodeURIComponent(otherUsername)}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data?.error || `Failed to get relationship status (${res.status})`);
+    }
+    return data;
+  },
+
+  respondToFriendRequest: async (data: {
+    request_id: number;
+    username: string;
+    action: string;
+  }) => {
+    const fetchWithTimeout = createFetchWithTimeout();
+    const res = await fetchWithTimeout(`${API_BASE_URL}/friends/request/respond`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+    const responseData = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(
+        responseData?.detail ||
+          responseData?.error ||
+          responseData?.message ||
+          `Failed to respond to friend request (${res.status})`
+      );
+    }
+    return responseData;
+  },
+
+  getPendingRequests: async (username: string) => {
+    const fetchWithTimeout = createFetchWithTimeout();
+    const res = await fetchWithTimeout(`${API_BASE_URL}/friends/requests/pending?username=${encodeURIComponent(username)}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(
+        data?.detail || 
+          data?.message ||
+          `Failed to get pending requests (${res.status})`
+      );
+    }
+    return data;
+  },
+
+  getFriendsList: async (username: string) => {
+    const fetchWithTimeout = createFetchWithTimeout();
+    const res = await fetchWithTimeout(`${API_BASE_URL}/friends/list?username=${encodeURIComponent(username)}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(
+        data?.detail || 
+          data?.message ||
+          `Failed to get friends list (${res.status})`
+      );
+    }
+    return data;
+  },
+
+  removeFriend: async (requestData: {
+    username: string;
+    friend_username: string;
+  }) => {
+    const fetchWithTimeout = createFetchWithTimeout();
+    const res = await fetchWithTimeout(`${API_BASE_URL}/friends/remove?username=${encodeURIComponent(requestData.username)}&friend_username=${encodeURIComponent(requestData.friend_username)}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(
+        data?.detail || 
+          data?.message ||
+          `Failed to remove friend (${res.status})`
+      );
+    }
+    return data;
+  },
+
+  getNotifications: async (username: string, limit: number = 20, unreadOnly: boolean = false) => {
+    const fetchWithTimeout = createFetchWithTimeout();
+    const res = await fetchWithTimeout(`${API_BASE_URL}/notifications/?username=${encodeURIComponent(username)}&limit=${limit}&unread_only=${unreadOnly}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data?.error || `Failed to get notifications (${res.status})`);
+    }
+    return data;
+  },
+
+  getUnreadCount: async (username: string) => {
+    const fetchWithTimeout = createFetchWithTimeout();
+    const res = await fetchWithTimeout(`${API_BASE_URL}/notifications/unread-count?username=${encodeURIComponent(username)}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data?.error || `Failed to get unread count (${res.status})`);
+    }
+    return data;
+  },
+
+  markNotificationsAsRead: async (notificationIds: number[]) => {
+    const fetchWithTimeout = createFetchWithTimeout();
+    const res = await fetchWithTimeout(`${API_BASE_URL}/notifications/mark-read`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ notification_ids: notificationIds }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data?.error || `Failed to mark notifications as read (${res.status})`);
+    }
+    return data;
+  },
+
+  markAllNotificationsAsRead: async (username: string) => {
+    const fetchWithTimeout = createFetchWithTimeout();
+    const res = await fetchWithTimeout(`${API_BASE_URL}/notifications/mark-all-read?username=${encodeURIComponent(username)}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data?.error || `Failed to mark all as read (${res.status})`);
+    }
+    return data;
+  },
+
+  deleteNotification: async (notificationId: number, username: string) => {
+    const fetchWithTimeout = createFetchWithTimeout();
+    const res = await fetchWithTimeout(`${API_BASE_URL}/notifications/${notificationId}?username=${encodeURIComponent(username)}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data?.error || `Failed to delete notification (${res.status})`);
+    }
+    return data;
+  },
+
 };

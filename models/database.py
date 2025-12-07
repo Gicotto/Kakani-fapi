@@ -116,3 +116,27 @@ class InviteLinks(SQLModel, table=True):
     # Relationships
     thread: Optional["Threads"] = Relationship(back_populates="invite_link")
     creator: Optional["Users"] = Relationship(back_populates="invites_created")
+
+class FriendRequest(SQLModel, table=True):
+    __tablename__ = "friend_requests"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    requester_uuid: str = Field(foreign_key="Users.Uuid")
+    recipient_uuid: str = Field(foreign_key="Users.Uuid")
+    status: str = Field(default="pending")  # 'pending', 'accepted', 'rejected'
+    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    responded_at: Optional[str] = None
+
+class Notification(SQLModel, table=True):
+    __tablename__ = "notifications"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_uuid: str = Field(foreign_key="Users.Uuid")
+    type: str  # 'friend_request', 'friend_accepted', 'message', 'invite', 'system'
+    from_user_uuid: Optional[str] = Field(default=None, foreign_key="Users.Uuid")
+    related_id: Optional[int] = None
+    title: str
+    message: str
+    is_read: int = Field(default=0)
+    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    action_url: Optional[str] = None

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
-type ViewType = "login" | "register" | "home" | "newMessage" | "messages" | "sendInvite";
+type ViewType = "login" | "register" | "home" | "newMessage" | "messages" | "sendInvite" | "friendsRequest" | "friendsHub" | "friendsList" | "searchFriends";
 
 interface NavigationContextType {
   currentView: ViewType;
@@ -13,6 +13,8 @@ interface NavigationContextType {
   navigateHome: () => void;
   navigateNewMessage: () => void;
   navigateSendInvite: () => void;
+  navigateFriendsHub: () => void;
+  navigateToNotifications: ()=> void;
 }
 
 const NavigationContext = createContext<NavigationContextType | undefined>(undefined);
@@ -40,6 +42,14 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     setCurrentView("sendInvite");
   };
 
+  const navigateFriendsHub = () => {
+    setCurrentView("friendsHub");
+  };
+
+  const navigateToNotifications = () => {
+    setCurrentView("notifications");
+  };
+
   return (
     <NavigationContext.Provider
       value={{
@@ -52,7 +62,9 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
         logout,
         navigateHome,
         navigateNewMessage,
-        navigateSendInvite
+        navigateSendInvite,
+        navigateFriendsHub,
+        navigateToNotifications,
       }}
     >
       {children}
