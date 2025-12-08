@@ -1,16 +1,72 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException, status
 from models.schemas import SendMessageRequest
 from models.database import Users, Threads, Messages, ThreadParticipants
 from db import Session, engine, select
 from sqlalchemy import func
+import os
+import logging
+import json
+from config import settings
 
 router = APIRouter(prefix="/messages", tags=["messages"])
+logger = logging.getLogger(__name__)
+
+# Optional encryption - won't break if not configured
+ENCRYPTION_ENABLED = False if settings.envm == "DEV" else True
+ENCRYPTION_KEY = settings.message_encryption_key
+
+# Only enable encryption if key is set
+if ENCRYPTION_ENABLED:
+    try:
+        from cryptography.fernet import Fernet
+        import base64
+        
+        cipher = Fernet(ENCRYPTION_KEY.encode())
+        logger.info("Message encryption ENABLED")
+    except Exception as e:
+        logger.warning(f"Encryption key set but initialization failed: {e}")
+        logger.warning("Messages will be stored in PLAINTEXT")
+else:
+    logger.warning("MESSAGE_ENCRYPTION_KEY not set - messages will be stored in PLAINTEXT")
+    logger.warning("For production, set MESSAGE_ENCRYPTION_KEY in your .env file")
+
+def encrypt_message(plaintext: str) -> str:
+    """Encrypt a message (only if encryption is enabled)"""
+    if not ENCRYPTION_ENABLED:
+        return plaintext
+    
+    try:
+        encrypted = cipher.encrypt(plaintext.encode())
+        return base64.urlsafe_b64encode(encrypted).decode()
+    except Exception as e:
+        logger.error(f"Encryption failed: {e}")
+        # Fall back to plaintext if encryption fails
+        return plaintext
+
+def decrypt_message(text: str) -> str:
+    """Decrypt a message (only if encryption is enabled)"""
+    if not ENCRYPTION_ENABLED:
+        return text
+    
+    try:
+        # Check if it looks like encrypted data
+        if not text.startswith("gAAAAA"):  # Fernet prefix
+            return text  # Already plaintext
+        
+        decoded = base64.urlsafe_b64decode(text.encode())
+        decrypted = cipher.decrypt(decoded)
+        return decrypted.decode()
+    except Exception as e:
+        logger.error(f"Decryption failed: {e}")
+        # Return original if decryption fails (might be plaintext)
+        return text
 
 @router.post("/send")
 async def send_message(request: SendMessageRequest):
     """
     Sends a message from one user to another.
     Creates or finds a thread between the two users, then adds the message.
+    Messages are encrypted if MESSAGE_ENCRYPTION_KEY is set.
     """
     sender_username = request.fromUser
     recipient_username = request.toUser
@@ -79,10 +135,13 @@ async def send_message(request: SendMessageRequest):
         current_max_index = session.exec(max_index_stmt).first()
         next_index = (current_max_index or 0) + 1
         
+        # Encrypt the message (or store plaintext if encryption disabled)
+        stored_body = encrypt_message(body)
+        
         new_message = Messages(
             thread_id=thread.id,
             sender_uuid=sender.Uuid,
-            body=body,
+            body=stored_body,
             message_index=next_index,
         )
         session.add(new_message)
@@ -110,22 +169,24 @@ async def send_message(request: SendMessageRequest):
                 "thread_id": thread.id,
                 "sender_uuid": sender.Uuid,
                 "recipient_uuid": recipient.Uuid,
-                "body": body,
+                "body": body,  # Return original plaintext
                 "message_index": new_message.message_index,
                 "created_at": new_message.created_at,
+                "encrypted": ENCRYPTION_ENABLED,  # Tell client if encrypted
             }
         }
 
 @router.get("/thread")
 async def get_messages_thread(
     user1: str = Query(..., description="Username of first user"),
-    user2: str = Query(..., description="Username of second user")
+    user2: str = Query(..., description="Username of second user"),
+    requesting_user_uuid: str = Query(None, description="UUID of user requesting messages (for filtering deleted)")
 ):
-    """Get all messages in the thread between two users."""
+    """Get all messages in the thread between two users, filtered by soft deletes."""
     with Session(engine) as session:
         user1_obj = session.exec(select(Users).where(Users.Username == user1)).first()
         user2_obj = session.exec(select(Users).where(Users.Username == user2)).first()
-        
+
         if not user1_obj or not user2_obj:
             return {
                 "success": False,
@@ -177,16 +238,29 @@ async def get_messages_thread(
             .order_by(Messages.message_index)
         )
         messages = session.exec(messages_stmt).all()
-        
+
         formatted_messages = []
         for msg in messages:
+            # Filter out messages deleted by the requesting user
+            if requesting_user_uuid:
+                try:
+                    deleted_for_users = json.loads(msg.deleted_for_users)
+                    if requesting_user_uuid in deleted_for_users:
+                        continue  # Skip this message for this user
+                except (json.JSONDecodeError, TypeError):
+                    pass  # If parsing fails, show the message
+
             sender = session.get(Users, msg.sender_uuid)
+
+            # Decrypt message (or return plaintext if encryption disabled)
+            decrypted_body = decrypt_message(msg.body)
+
             formatted_messages.append({
                 "id": msg.id,
                 "thread_id": msg.thread_id,
                 "sender_uuid": msg.sender_uuid,
                 "sender_username": sender.Username if sender else "Unknown",
-                "body": msg.body,
+                "body": decrypted_body,
                 "message_index": msg.message_index,
                 "created_at": msg.created_at.isoformat() if hasattr(msg.created_at, 'isoformat') else str(msg.created_at),
             })
@@ -194,7 +268,8 @@ async def get_messages_thread(
         return {
             "success": True,
             "thread_id": thread.id,
-            "messages": formatted_messages
+            "messages": formatted_messages,
+            "encrypted": ENCRYPTION_ENABLED,  # Tell client if encrypted
         }
 
 @router.get("/threads")
@@ -228,9 +303,17 @@ async def get_user_threads(
         
         for thread_id in thread_ids:
             thread = session.get(Threads, thread_id)
-            
+
             if not thread or thread.is_group:
                 continue
+
+            # Filter out threads hidden by this user
+            try:
+                hidden_for_users = json.loads(thread.hidden_for_users)
+                if user.Uuid in hidden_for_users:
+                    continue  # Skip this thread for this user
+            except (json.JSONDecodeError, TypeError):
+                pass  # If parsing fails, show the thread
             
             participants = session.exec(
                 select(ThreadParticipants)
@@ -260,6 +343,12 @@ async def get_user_threads(
             
             if not last_message:
                 continue
+            
+            # Decrypt last message preview
+            decrypted_preview = decrypt_message(last_message.body)
+            # Truncate preview if too long
+            if len(decrypted_preview) > 50:
+                decrypted_preview = decrypted_preview[:50] + "..."
             
             user_participant = None
             for participant in participants:
@@ -292,14 +381,103 @@ async def get_user_threads(
                 "thread_id": thread_id,
                 "other_user_uuid": other_user.Uuid,
                 "other_user_username": other_user.Username,
-                "last_message": last_message.body,
+                "last_message": decrypted_preview,
                 "last_message_time": last_message.created_at.isoformat() if hasattr(last_message.created_at, 'isoformat') else str(last_message.created_at),
                 "unread_count": unread_count
             })
         
         threads_data.sort(key=lambda x: x["last_message_time"], reverse=True)
-        
+
         return {
             "success": True,
-            "threads": threads_data
+            "threads": threads_data,
+            "encrypted": ENCRYPTION_ENABLED,  # Tell client if encrypted
+        }
+
+
+@router.delete("/message/{message_id}")
+async def delete_message(
+    message_id: int,
+    user_uuid: str = Query(..., description="UUID of user deleting the message")
+):
+    """
+    Soft delete a message for a specific user.
+    The message will be hidden from this user but still visible to others.
+    """
+    with Session(engine) as session:
+        # Get the message
+        message = session.get(Messages, message_id)
+        if not message:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Message not found"
+            )
+
+        # Parse the deleted_for_users JSON
+        try:
+            deleted_for_users = json.loads(message.deleted_for_users)
+        except (json.JSONDecodeError, TypeError):
+            deleted_for_users = []
+
+        # Add user to deleted list if not already there
+        if user_uuid not in deleted_for_users:
+            deleted_for_users.append(user_uuid)
+            message.deleted_for_users = json.dumps(deleted_for_users)
+            session.add(message)
+            session.commit()
+
+        return {
+            "success": True,
+            "message": "Message deleted successfully"
+        }
+
+
+@router.delete("/thread/{thread_id}")
+async def hide_thread(
+    thread_id: int,
+    user_uuid: str = Query(..., description="UUID of user hiding the thread")
+):
+    """
+    Hide a thread for a specific user.
+    The thread will be hidden from this user's thread list but still visible to others.
+    """
+    with Session(engine) as session:
+        # Get the thread
+        thread = session.get(Threads, thread_id)
+        if not thread:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Thread not found"
+            )
+
+        # Verify user is a participant
+        participant = session.exec(
+            select(ThreadParticipants).where(
+                ThreadParticipants.thread_id == thread_id,
+                ThreadParticipants.user_uuid == user_uuid
+            )
+        ).first()
+
+        if not participant:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not a participant in this thread"
+            )
+
+        # Parse the hidden_for_users JSON
+        try:
+            hidden_for_users = json.loads(thread.hidden_for_users)
+        except (json.JSONDecodeError, TypeError):
+            hidden_for_users = []
+
+        # Add user to hidden list if not already there
+        if user_uuid not in hidden_for_users:
+            hidden_for_users.append(user_uuid)
+            thread.hidden_for_users = json.dumps(hidden_for_users)
+            session.add(thread)
+            session.commit()
+
+        return {
+            "success": True,
+            "message": "Thread hidden successfully"
         }

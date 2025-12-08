@@ -7,6 +7,7 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
+  SectionList,
 } from "react-native";
 import { api } from "../utils/api";
 
@@ -15,6 +16,15 @@ interface Friend {
   username: string;
   active: boolean;
   friends_since: string;
+}
+
+interface PendingInvite {
+  invite_code: string;
+  recipient_type: "email" | "phone";
+  recipient_value: string;
+  created_at: string;
+  expires_at: string;
+  status: "pending" | "accepted";
 }
 
 interface FriendsListViewProps {
@@ -33,16 +43,29 @@ export default function FriendsListView({
   onFriendRemoved,
 }: FriendsListViewProps) {
   const [friends, setFriends] = useState<Friend[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [removingUsername, setRemovingUsername] = useState<string | null>(null);
+  const [resendingCode, setResendingCode] = useState<string | null>(null);
 
   useEffect(() => {
-    loadFriends();
+    loadData();
   }, []);
 
-  const loadFriends = async () => {
+  const loadData = async () => {
     setLoading(true);
+    try {
+      await Promise.all([
+        loadFriends(),
+        loadPendingInvites(),
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadFriends = async () => {
     try {
       const data = await api.getFriendsList(currentUsername);
       
@@ -51,22 +74,50 @@ export default function FriendsListView({
       }
     } catch (error: any) {
       console.error("Failed to load friends:", error.message);
-      Alert.alert("Error", "Failed to load friends list");
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  const loadPendingInvites = async () => {
+    try {
+      const response = await api.getPendingInvites(currentUserUuid);
+      
+      if (response.success) {
+        // Transform the API response to match our PendingInvite interface
+        const invites: PendingInvite[] = response.pending_invites.map((invite: any) => {
+          // Get the first external recipient (email or phone)
+          const externalRecipient = invite.recipients.find(
+            (r: any) => r.type === 'email' || r.type === 'phone'
+          );
+          
+          if (externalRecipient) {
+            return {
+              invite_code: invite.invite_code,
+              recipient_type: externalRecipient.type as "email" | "phone",
+              recipient_value: externalRecipient.value,
+              created_at: invite.created_at,
+              expires_at: invite.expires_at,
+              status: invite.is_expired ? "expired" as any : "pending",
+            };
+          }
+          return null;
+        }).filter(Boolean);
+        
+        setPendingInvites(invites);
+      }
+    } catch (error: any) {
+      console.error("Failed to load pending invites:", error.message);
     }
   };
 
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      const data = await api.getFriendsList(currentUsername);
-      
-      if (data.success) {
-        setFriends(data.friends || []);
-      }
+      await Promise.all([
+        loadFriends(),
+        loadPendingInvites(),
+      ]);
     } catch (error: any) {
-      console.error("Failed to refresh friends:", error.message);
+      console.error("Failed to refresh:", error.message);
     } finally {
       setRefreshing(false);
     }
@@ -112,6 +163,42 @@ export default function FriendsListView({
     );
   };
 
+  const handleResendInvite = async (inviteCode: string, recipientNumber: 1 | 2 = 2) => {
+    setResendingCode(inviteCode);
+    try {
+      await api.resendInvite(inviteCode, recipientNumber);
+      Alert.alert("Success", "Invitation resent!");
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to resend invitation");
+    } finally {
+      setResendingCode(null);
+    }
+  };
+
+  const handleCancelInvite = async (inviteCode: string) => {
+    Alert.alert(
+      "Cancel Invitation",
+      "Are you sure you want to cancel this invitation?",
+      [
+        {
+          text: "No",
+          style: "cancel",
+        },
+        {
+          text: "Yes, Cancel",
+          style: "destructive",
+          onPress: async () => {
+            // Remove from local state
+            setPendingInvites(prev => 
+              prev.filter(invite => invite.invite_code !== inviteCode)
+            );
+            // You might want to call an API to cancel the invite on the backend
+          },
+        },
+      ]
+    );
+  };
+
   const formatDate = (timestamp: string) => {
     try {
       const date = new Date(timestamp);
@@ -122,6 +209,14 @@ export default function FriendsListView({
       });
     } catch {
       return "Unknown";
+    }
+  };
+
+  const isInviteExpired = (expiresAt: string): boolean => {
+    try {
+      return new Date(expiresAt) < new Date();
+    } catch {
+      return false;
     }
   };
 
@@ -171,6 +266,77 @@ export default function FriendsListView({
     );
   };
 
+  const renderPendingInvite = ({ item }: { item: PendingInvite }) => {
+    const isResending = resendingCode === item.invite_code;
+    const expired = isInviteExpired(item.expires_at);
+    
+    return (
+      <View style={styles.inviteCard}>
+        <View style={styles.inviteInfo}>
+          <View style={styles.inviteIcon}>
+            <Text style={styles.inviteIconText}>
+              {item.recipient_type === "email" ? "📧" : "📱"}
+            </Text>
+          </View>
+          <View style={styles.inviteDetails}>
+            <Text style={styles.inviteRecipient}>{item.recipient_value}</Text>
+            <Text style={styles.inviteType}>
+              {item.recipient_type === "email" ? "Email Invitation" : "SMS Invitation"}
+            </Text>
+            <Text style={[styles.inviteStatus, expired && styles.inviteExpired]}>
+              {expired ? "Expired" : `Expires ${formatDate(item.expires_at)}`}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.inviteActions}>
+          {!expired && (
+            <TouchableOpacity
+              style={[styles.resendButton, isResending && styles.buttonDisabled]}
+              onPress={() => handleResendInvite(item.invite_code)}
+              disabled={isResending}
+            >
+              {isResending ? (
+                <ActivityIndicator color="#3b82f6" size="small" />
+              ) : (
+                <Text style={styles.resendButtonText}>Resend</Text>
+              )}
+            </TouchableOpacity>
+          )}
+          
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={() => handleCancelInvite(item.invite_code)}
+          >
+            <Text style={styles.cancelButtonText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  const renderSectionHeader = ({ section }: any) => (
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionTitle}>{section.title}</Text>
+      <Text style={styles.sectionCount}>
+        {section.data.length}
+      </Text>
+    </View>
+  );
+
+  const sections = [
+    ...(pendingInvites.length > 0 ? [{
+      title: "Pending Invitations",
+      data: pendingInvites,
+      renderItem: renderPendingInvite,
+    }] : []),
+    {
+      title: "Friends",
+      data: friends,
+      renderItem: renderFriend,
+    },
+  ];
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -190,12 +356,22 @@ export default function FriendsListView({
         </TouchableOpacity>
       </View>
 
-      {/* Friends Count */}
-      {!loading && friends.length > 0 && (
+      {/* Stats Card */}
+      {!loading && (friends.length > 0 || pendingInvites.length > 0) && (
         <View style={styles.statsCard}>
-          <Text style={styles.statsText}>
-            {friends.length} {friends.length === 1 ? "Friend" : "Friends"}
-          </Text>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{friends.length}</Text>
+            <Text style={styles.statLabel}>Friends</Text>
+          </View>
+          {pendingInvites.length > 0 && (
+            <>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>{pendingInvites.length}</Text>
+                <Text style={styles.statLabel}>Pending</Text>
+              </View>
+            </>
+          )}
         </View>
       )}
 
@@ -205,9 +381,9 @@ export default function FriendsListView({
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#3b82f6" />
-              <Text style={styles.loadingText}>Loading friends...</Text>
+              <Text style={styles.loadingText}>Loading...</Text>
             </View>
-          ) : friends.length === 0 ? (
+          ) : friends.length === 0 && pendingInvites.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyIcon}>👥</Text>
               <Text style={styles.emptyText}>No friends yet</Text>
@@ -216,14 +392,18 @@ export default function FriendsListView({
               </Text>
             </View>
           ) : (
-            <FlatList
-              data={friends}
-              renderItem={renderFriend}
-              keyExtractor={(item) => item.uuid}
-              contentContainerStyle={styles.friendsList}
+            <SectionList
+              sections={sections}
+              renderItem={({ item, section }) => section.renderItem({ item })}
+              renderSectionHeader={renderSectionHeader}
+              keyExtractor={(item, index) => 
+                'invite_code' in item ? item.invite_code : item.uuid
+              }
+              contentContainerStyle={styles.sectionList}
               showsVerticalScrollIndicator={false}
               refreshing={refreshing}
               onRefresh={handleRefresh}
+              stickySectionHeadersEnabled={false}
             />
           )}
         </View>
@@ -286,17 +466,31 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderRadius: 12,
     padding: 16,
+    flexDirection: "row",
+    justifyContent: "space-around",
     shadowColor: "#000",
     shadowOpacity: 0.04,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 1,
   },
-  statsText: {
-    fontSize: 14,
+  statItem: {
+    alignItems: "center",
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#3b82f6",
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
     fontWeight: "600",
     color: "#6b7280",
-    textAlign: "center",
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: "#e5e7eb",
   },
   contentWrapper: {
     flex: 1,
@@ -313,8 +507,30 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
-  friendsList: {
+  sectionList: {
     gap: 12,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    marginTop: 8,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#374151",
+  },
+  sectionCount: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#6b7280",
+    backgroundColor: "#f3f4f6",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
   },
   friendCard: {
     flexDirection: "row",
@@ -323,6 +539,7 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: "#f9fafb",
     borderRadius: 12,
+    marginBottom: 8,
   },
   friendInfo: {
     flexDirection: "row",
@@ -403,6 +620,92 @@ const styles = StyleSheet.create({
     color: "#ef4444",
     fontSize: 13,
     fontWeight: "600",
+  },
+  inviteCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 12,
+    backgroundColor: "#fef3c7",
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#fbbf24",
+  },
+  inviteInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  inviteIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#fbbf24",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  inviteIconText: {
+    fontSize: 24,
+  },
+  inviteDetails: {
+    flex: 1,
+  },
+  inviteRecipient: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#0f172a",
+    marginBottom: 2,
+  },
+  inviteType: {
+    fontSize: 12,
+    color: "#92400e",
+    marginBottom: 2,
+  },
+  inviteStatus: {
+    fontSize: 11,
+    color: "#92400e",
+  },
+  inviteExpired: {
+    color: "#ef4444",
+    fontWeight: "600",
+  },
+  inviteActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  resendButton: {
+    backgroundColor: "#ffffff",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#3b82f6",
+    minWidth: 70,
+    alignItems: "center",
+  },
+  resendButtonText: {
+    color: "#3b82f6",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  cancelButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#ffffff",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
+  cancelButtonText: {
+    fontSize: 18,
+    color: "#6b7280",
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   emptyContainer: {
     flex: 1,

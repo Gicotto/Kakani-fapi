@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import settings
-from routers import auth, users, messages, invites, friends
+from routers import auth, users, messages, invites, friends, notifications
 
 app = FastAPI(title="Messaging API", version="1.0.0")
 
@@ -20,6 +20,7 @@ app.include_router(users.router)
 app.include_router(messages.router)
 app.include_router(invites.router)
 app.include_router(friends.router)
+app.include_router(notifications.router)
 
 @app.get("/")
 async def root():

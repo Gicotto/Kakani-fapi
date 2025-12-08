@@ -141,10 +141,97 @@ export const api = {
     return data;
   },
 
-  getMessages: async (currentUser: string, otherUser: string) => {
+  // ============================================
+  // NEW MULTI-CHANNEL INVITE METHODS
+  // ============================================
+
+  /**
+   * Create invite with multi-channel support (username/email/phone)
+   * @param createdBy - Username of the user creating the invite
+   * @param inviteData - Invite data with recipient information
+   */
+  createInvite: async (
+    createdBy: string,
+    inviteData: {
+      recipient1_username: string | null;
+      recipient1_email: string | null;
+      recipient1_phone: string | null;
+      recipient2_username: string | null;
+      recipient2_email: string | null;
+      recipient2_phone: string | null;
+      expires_in_hours?: number;
+    }
+  ) => {
     const fetchWithTimeout = createFetchWithTimeout();
     const res = await fetchWithTimeout(
-      `${API_BASE_URL}/messages/thread?user1=${encodeURIComponent(currentUser)}&user2=${encodeURIComponent(otherUser)}`,
+      `${API_BASE_URL}/invites/create?created_by=${createdBy}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(inviteData),
+      }
+    );
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.detail || data?.message || `Failed to create invite (${res.status})`
+      );
+    }
+
+    return data;
+  },
+
+  /**
+   * Accept an invite
+   * @param userUuid - UUID of the user accepting the invite
+   * @param inviteCode - The invite code
+   * @param recipientNumber - Which recipient slot (1 or 2)
+   */
+  acceptInvite: async (
+    userUuid: string,
+    inviteCode: string,
+    recipientNumber: 1 | 2
+  ) => {
+    const fetchWithTimeout = createFetchWithTimeout();
+    const res = await fetchWithTimeout(
+      `${API_BASE_URL}/invites/accept?user_uuid=${userUuid}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          code: inviteCode,
+          recipient_number: recipientNumber,
+        }),
+      }
+    );
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.detail || data?.message || `Failed to accept invite (${res.status})`
+      );
+    }
+
+    return data;
+  },
+
+  /**
+   * Check the status of an invite
+   * @param inviteCode - The invite code to check
+   */
+  checkInviteStatus: async (inviteCode: string) => {
+    const fetchWithTimeout = createFetchWithTimeout();
+    const res = await fetchWithTimeout(
+      `${API_BASE_URL}/invites/check/${inviteCode}`,
       {
         method: "GET",
         headers: {
@@ -153,6 +240,95 @@ export const api = {
         },
       }
     );
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.detail || data?.message || `Failed to check invite status (${res.status})`
+      );
+    }
+
+    return data;
+  },
+
+  /**
+   * Resend invite notification to a recipient
+   * @param inviteCode - The invite code
+   * @param recipientNumber - Which recipient to resend to (1 or 2)
+   */
+  resendInvite: async (inviteCode: string, recipientNumber: 1 | 2) => {
+    const fetchWithTimeout = createFetchWithTimeout();
+    const res = await fetchWithTimeout(
+      `${API_BASE_URL}/invites/resend/${inviteCode}?recipient_number=${recipientNumber}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      }
+    );
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.detail || data?.message || `Failed to resend invite (${res.status})`
+      );
+    }
+
+    return data;
+  },
+
+  /**
+   * Get all pending external invites for a user
+   * @param userUuid - UUID of the user
+   */
+  getPendingInvites: async (userUuid: string) => {
+    const fetchWithTimeout = createFetchWithTimeout();
+    const res = await fetchWithTimeout(
+      `${API_BASE_URL}/invites/pending/${userUuid}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      }
+    );
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.detail || data?.message || `Failed to get pending invites (${res.status})`
+      );
+    }
+
+    return data;
+  },
+
+  // ============================================
+  // END NEW INVITE METHODS
+  // ============================================
+
+  getMessages: async (currentUser: string, otherUser: string, requestingUserUuid?: string) => {
+    const fetchWithTimeout = createFetchWithTimeout();
+    let url = `${API_BASE_URL}/messages/thread?user1=${encodeURIComponent(currentUser)}&user2=${encodeURIComponent(otherUser)}`;
+
+    // Add requesting_user_uuid for filtering deleted messages
+    if (requestingUserUuid) {
+      url += `&requesting_user_uuid=${encodeURIComponent(requestingUserUuid)}`;
+    }
+
+    const res = await fetchWithTimeout(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
 
     const data = await res.json().catch(() => ({}));
 
@@ -198,6 +374,64 @@ export const api = {
     }
 
     return data.threads || [];
+  },
+
+  /**
+   * Delete a message for the current user (soft delete)
+   * @param messageId - ID of the message to delete
+   * @param userUuid - UUID of the user deleting the message
+   */
+  deleteMessage: async (messageId: number, userUuid: string) => {
+    const fetchWithTimeout = createFetchWithTimeout();
+    const res = await fetchWithTimeout(
+      `${API_BASE_URL}/messages/message/${messageId}?user_uuid=${encodeURIComponent(userUuid)}`,
+      {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      }
+    );
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.detail || data?.message || `Failed to delete message (${res.status})`
+      );
+    }
+
+    return data;
+  },
+
+  /**
+   * Hide a thread for the current user
+   * @param threadId - ID of the thread to hide
+   * @param userUuid - UUID of the user hiding the thread
+   */
+  hideThread: async (threadId: number, userUuid: string) => {
+    const fetchWithTimeout = createFetchWithTimeout();
+    const res = await fetchWithTimeout(
+      `${API_BASE_URL}/messages/thread/${threadId}?user_uuid=${encodeURIComponent(userUuid)}`,
+      {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      }
+    );
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data?.detail || data?.message || `Failed to hide thread (${res.status})`
+      );
+    }
+
+    return data;
   },
 
   getUserDetails: async (username: string) => {
@@ -476,5 +710,5 @@ export const api = {
     }
     return data;
   },
-
+  
 };

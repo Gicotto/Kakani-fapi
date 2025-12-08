@@ -38,11 +38,11 @@ export default function App() {
     navigateToNotifications,
   } = useAuth();
 
-  const handleLoginSuccess = (loggedInUsername: string, uuid?: string) => {
+  const handleLoginSuccess = (loggedInUsername: string, uuid: string) => {
     login(loggedInUsername, uuid);
   };
 
-  const handleRegisterSuccess = (registeredUsername: string, uuid?: string) => {
+  const handleRegisterSuccess = (registeredUsername: string, uuid: string) => {
     login(registeredUsername, uuid);
   };
 
@@ -84,7 +84,7 @@ export default function App() {
       {currentView === "home" && (
         <HomeView
           username={username}
-          userUuid={userUuid || username}
+          userUuid={userUuid}
           onNewMessage={navigateToNewMessage}
           onOpenConversation={navigateToMessages}
         />
@@ -93,7 +93,7 @@ export default function App() {
       {currentView === "newMessage" && (
         <NewMessageView
           currentUsername={username}
-          currentUserUuid={userUuid || username}
+          currentUserUuid={userUuid}
           onBack={navigateToHome}
           onOpenConversation={navigateToMessages}
         />
@@ -102,7 +102,7 @@ export default function App() {
       {currentView === "messages" && activeConversation && (
         <MessagesView
           currentUsername={username}
-          currentUserUuid={userUuid || username}
+          currentUserUuid={userUuid}
           recipientUsername={activeConversation.recipientUsername}
           recipientUuid={activeConversation.recipientUuid}
           onBack={handleBackFromMessages}
@@ -112,7 +112,7 @@ export default function App() {
       {currentView === "sendInvite" && (
         <SendInvitesView
           currentUsername={username}
-          currentUserUuid={userUuid || username}
+          currentUserUuid={userUuid}
           onBack={navigateToHome}
           onSendInvite={navigateToSendInvite}
         />
@@ -121,7 +121,7 @@ export default function App() {
       {currentView === "accountSettings" && (
         <AccountSettingsView
           currentUsername={username}
-          currentUserUuid={userUuid || username}
+          currentUserUuid={userUuid}
           onBack={navigateToHome}
           onChangePassword={navigateToChangePassword}
         />
@@ -130,7 +130,7 @@ export default function App() {
       {currentView === "changePassword" && (
         <ChangePasswordView
           currentUsername={username}
-          currentUserUuid={userUuid || username}
+          currentUserUuid={userUuid}
           onBack={navigateToHome}
         />
       )}
@@ -138,7 +138,7 @@ export default function App() {
       {currentView === "friendsHub" && (
         <FriendsHub
           currentUsername={username}
-          currentUserUuid={userUuid || username}
+          currentUserUuid={userUuid}
           onBack={navigateToHome}
         />
       )}
@@ -146,7 +146,7 @@ export default function App() {
       {currentView === "notifications" && (
         <NotificationsView
           currentUsername={username}
-          currentUserUuid={userUuid || username}
+          currentUserUuid={userUuid}
           onBack={navigateToHome}
         />
       )}

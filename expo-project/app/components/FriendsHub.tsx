@@ -8,6 +8,8 @@ import {
 import SearchFriendsView from "./SearchFriendsView";
 import FriendRequestsView from "./FriendRequestsView";
 import FriendsListView from "./FriendsListView";
+import SendInvitesView from "./SendInvites";
+import SentInvitesView from "./SentInvitesView";
 
 interface FriendsHubProps {
   currentUsername: string;
@@ -16,7 +18,7 @@ interface FriendsHubProps {
   onOpenConversation?: (username: string, uuid: string) => void;
 }
 
-type ViewMode = "hub" | "search" | "requests" | "list";
+type ViewMode = "hub" | "search" | "requests" | "list" | "sendInvites" | "sentInvites";
 
 export default function FriendsHub({
   currentUsername,
@@ -30,6 +32,8 @@ export default function FriendsHub({
   const navigateToSearch = () => setCurrentView("search");
   const navigateToRequests = () => setCurrentView("requests");
   const navigateToList = () => setCurrentView("list");
+  const navigateToSendInvites = () => setCurrentView("sendInvites");
+  const navigateToSentInvites = () => setCurrentView("sentInvites");
   const navigateToHub = () => setCurrentView("hub");
 
   // Render the appropriate view based on current state
@@ -73,6 +77,29 @@ export default function FriendsHub({
     );
   }
 
+  if (currentView === "sendInvites") {
+    return (
+      <SendInvitesView
+        currentUsername={currentUsername}
+        currentUserUuid={currentUserUuid}
+        onBack={navigateToHub}
+        onSendInvite={() => {
+          // Optionally navigate to sent invites
+        }}
+      />
+    );
+  }
+
+  if (currentView === "sentInvites") {
+    return (
+      <SentInvitesView
+        currentUsername={currentUsername}
+        currentUserUuid={currentUserUuid}
+        onBack={navigateToHub}
+      />
+    );
+  }
+
   // Main hub view
   return (
     <View style={styles.container}>
@@ -89,7 +116,7 @@ export default function FriendsHub({
         <View style={styles.welcomeCard}>
           <Text style={styles.welcomeTitle}>Manage Your Friends</Text>
           <Text style={styles.welcomeSubtitle}>
-            Find friends, manage requests, and view your connections
+            Find friends, manage requests, and connect people
           </Text>
         </View>
 
@@ -144,6 +171,42 @@ export default function FriendsHub({
               <Text style={styles.actionTitle}>My Friends</Text>
               <Text style={styles.actionDescription}>
                 View and manage your friends list
+              </Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+
+          {/* Send Nudge Duo Invite Card */}
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={navigateToSendInvites}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.iconCircle, styles.iconCircleOrange]}>
+              <Text style={styles.iconEmoji}>🤝</Text>
+            </View>
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>Nudge Duo Invite</Text>
+              <Text style={styles.actionDescription}>
+                Connect two people with an invite
+              </Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+
+          {/* Sent Invites Card */}
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={navigateToSentInvites}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.iconCircle, styles.iconCircleTeal]}>
+              <Text style={styles.iconEmoji}>📨</Text>
+            </View>
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>Sent Invites</Text>
+              <Text style={styles.actionDescription}>
+                Track your nudge duo invite status
               </Text>
             </View>
             <Text style={styles.chevron}>›</Text>
@@ -247,6 +310,12 @@ const styles = StyleSheet.create({
   },
   iconCirclePurple: {
     backgroundColor: "#e9d5ff",
+  },
+  iconCircleOrange: {
+    backgroundColor: "#fed7aa",
+  },
+  iconCircleTeal: {
+    backgroundColor: "#ccfbf1",
   },
   iconEmoji: {
     fontSize: 28,

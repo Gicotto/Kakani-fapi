@@ -13,7 +13,7 @@ import {
 import { api } from "../utils/api";
 
 interface RegisterViewProps {
-  onRegisterSuccess: (username: string) => void;
+  onRegisterSuccess: (username: string, uuid: string) => void;
   onSwitchToLogin: () => void;
 }
 
@@ -102,7 +102,7 @@ export default function RegisterView({
         phone: phoneForApi,
       });
       Alert.alert("Account Created", data?.message ?? "Welcome!");
-      onRegisterSuccess(username);
+      onRegisterSuccess(username, data.uuid);
     } catch (e: any) {
       setError(
         e?.name === "AbortError"

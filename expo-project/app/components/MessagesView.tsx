@@ -37,13 +37,14 @@ export default function MessagesView({
   currentUserUuid,
   recipientUsername,
   recipientUuid,
-  threadId,
+  threadId: propThreadId,
   onBack,
 }: MessagesViewProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [threadId, setThreadId] = useState<number | undefined>(propThreadId);
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -55,12 +56,20 @@ export default function MessagesView({
 
   const loadMessages = async () => {
     if (!recipientUsername) return;
-    
+
     setLoading(true);
     try {
-      const messagesData = await api.getMessages(currentUsername, recipientUsername);
+      // Pass currentUserUuid to filter deleted messages
+      const messagesData = await api.getMessages(currentUsername, recipientUsername, currentUserUuid);
       setMessages(messagesData);
-      
+
+      // Extract threadId from first message if not already set
+      if (messagesData.length > 0 && !threadId) {
+        const extractedThreadId = messagesData[0].thread_id;
+        console.log("Extracted threadId from messages:", extractedThreadId);
+        setThreadId(extractedThreadId);
+      }
+
       // Scroll to bottom when messages load
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
@@ -84,7 +93,7 @@ export default function MessagesView({
     setSending(true);
     try {
       await api.sendMessage(currentUsername, recipientUsername, messageToSend);
-      
+
       // Reload messages to show the new one
       await loadMessages();
     } catch (error: any) {
@@ -95,11 +104,148 @@ export default function MessagesView({
     }
   };
 
+  const handleDeleteMessage = async (messageId: number) => {
+    console.log("handleDeleteMessage called with messageId:", messageId);
+    console.log("currentUserUuid:", currentUserUuid);
+
+    // Web-compatible confirmation
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm("Are you sure you want to delete this message? It will only be removed for you.");
+      if (!confirmed) {
+        console.log("Delete cancelled");
+        return;
+      }
+
+      console.log("Delete confirmed, calling API...");
+      try {
+        await api.deleteMessage(messageId, currentUserUuid);
+        console.log("Message deleted successfully");
+        // Remove message from local state immediately
+        setMessages(messages.filter(msg => msg.id !== messageId));
+        window.alert("Message deleted");
+      } catch (error: any) {
+        console.error("Delete error:", error);
+        window.alert(error.message || "Failed to delete message");
+      }
+    } else {
+      // Native Alert for iOS/Android
+      Alert.alert(
+        "Delete Message",
+        "Are you sure you want to delete this message? It will only be removed for you.",
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => console.log("Delete cancelled"),
+          },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              console.log("Delete confirmed, calling API...");
+              try {
+                await api.deleteMessage(messageId, currentUserUuid);
+                console.log("Message deleted successfully");
+                // Remove message from local state immediately
+                setMessages(messages.filter(msg => msg.id !== messageId));
+                Alert.alert("Success", "Message deleted");
+              } catch (error: any) {
+                console.error("Delete error:", error);
+                Alert.alert("Error", error.message || "Failed to delete message");
+              }
+            },
+          },
+        ]
+      );
+    }
+  };
+
+  const handleHideThread = async () => {
+    console.log("handleHideThread called");
+    console.log("threadId:", threadId);
+    console.log("currentUserUuid:", currentUserUuid);
+
+    // Web-compatible confirmation
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(`Are you sure you want to hide this conversation with ${recipientUsername}? You can start a new conversation later.`);
+      if (!confirmed) {
+        console.log("Hide cancelled");
+        return;
+      }
+
+      console.log("Hide confirmed, calling API...");
+      try {
+        if (threadId) {
+          console.log("Calling hideThread API with threadId:", threadId, "userUuid:", currentUserUuid);
+          await api.hideThread(threadId, currentUserUuid);
+          console.log("Thread hidden successfully");
+          window.alert("Conversation hidden");
+          onBack();
+        } else {
+          console.error("No threadId available");
+          window.alert("Thread ID not found");
+        }
+      } catch (error: any) {
+        console.error("Hide thread error:", error);
+        window.alert(error.message || "Failed to hide conversation");
+      }
+    } else {
+      // Native Alert for iOS/Android
+      Alert.alert(
+        "Hide Conversation",
+        `Are you sure you want to hide this conversation with ${recipientUsername}? You can start a new conversation later.`,
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => console.log("Hide cancelled"),
+          },
+          {
+            text: "Hide",
+            style: "destructive",
+            onPress: async () => {
+              console.log("Hide confirmed, calling API...");
+              try {
+                if (threadId) {
+                  console.log("Calling hideThread API with threadId:", threadId, "userUuid:", currentUserUuid);
+                  await api.hideThread(threadId, currentUserUuid);
+                  console.log("Thread hidden successfully");
+                  Alert.alert("Success", "Conversation hidden", [
+                    {
+                      text: "OK",
+                      onPress: onBack,
+                    },
+                  ]);
+                } else {
+                  console.error("No threadId available");
+                  Alert.alert("Error", "Thread ID not found");
+                }
+              } catch (error: any) {
+                console.error("Hide thread error:", error);
+                Alert.alert("Error", error.message || "Failed to hide conversation");
+              }
+            },
+          },
+        ]
+      );
+    }
+  };
+
   const renderMessage = ({ item }: { item: Message }) => {
     const isCurrentUser = item.sender_username === currentUsername;
-    
+
     return (
-      <View
+      <TouchableOpacity
+        onLongPress={() => {
+          console.log("Long press triggered for message:", item.id);
+          handleDeleteMessage(item.id);
+        }}
+        onPress={() => {
+          // Empty onPress to prevent default behavior but allow long press
+          console.log("Short press on message:", item.id);
+        }}
+        delayLongPress={500}
+        activeOpacity={0.7}
         style={[
           styles.messageBubble,
           isCurrentUser ? styles.messageBubbleSent : styles.messageBubbleReceived,
@@ -124,7 +270,7 @@ export default function MessagesView({
         >
           {formatTime(item.created_at)}
         </Text>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -173,6 +319,17 @@ export default function MessagesView({
         {/* Floating back button */}
         <TouchableOpacity onPress={onBack} style={styles.floatingBackButton}>
           <Text style={styles.backArrow}>←</Text>
+        </TouchableOpacity>
+
+        {/* Floating menu button (hide thread) */}
+        <TouchableOpacity
+          onPress={() => {
+            console.log("Menu button pressed, threadId:", threadId);
+            handleHideThread();
+          }}
+          style={styles.floatingMenuButton}
+        >
+          <Text style={styles.menuIcon}>⋮</Text>
         </TouchableOpacity>
 
         {loading && messages.length === 0 ? (
@@ -312,6 +469,29 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: "#3b82f6",
     fontWeight: "600",
+  },
+  floatingMenuButton: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#ffffff",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1001,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  menuIcon: {
+    fontSize: 24,
+    color: "#3b82f6",
+    fontWeight: "700",
+    lineHeight: 24,
   },
   loadingContainer: {
     flex: 1,

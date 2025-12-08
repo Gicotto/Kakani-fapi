@@ -11,7 +11,7 @@ import {
 import { api } from "../utils/api";
 
 interface LoginViewProps {
-  onLoginSuccess: (username: string) => void;
+  onLoginSuccess: (username: string, uuid: string) => void;
   onSwitchToRegister: () => void;
 }
 
@@ -34,8 +34,18 @@ export default function LoginView({
     setLoading(true);
     try {
       const data = await api.login({ username, password });
+      
+      // Debug: Check if UUID is in the response
+      console.log('Login response:', data);
+      console.log('UUID from backend:', data.user_id);
+      
+      if (!data.user_id) {
+        throw new Error('Backend did not return UUID');
+      }
+      
       Alert.alert("Login success", data?.message ?? "Welcome!");
-      onLoginSuccess(username);
+      onLoginSuccess(username, data.user_id);  // ← Pass BOTH username and uuid!
+      
     } catch (e: any) {
       setError(
         e?.name === "AbortError"

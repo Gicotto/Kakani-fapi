@@ -27,13 +27,14 @@ class Users(SQLModel, table=True):
 
 class Threads(SQLModel, table=True):
     __tablename__ = "threads"
-    
+
     id: Optional[int] = Field(default=None, primary_key=True)
     is_group: int = Field(default=0)  # 0=DM, 1=group
     title: Optional[str] = None
     created_by: str = Field(foreign_key="Users.Uuid")
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
-    
+    hidden_for_users: str = Field(default="[]")  # JSON array of user UUIDs who hid this thread
+
     # Relationships
     creator: Optional["Users"] = Relationship(back_populates="threads_created")
     messages: List["Messages"] = Relationship(back_populates="thread")
@@ -43,7 +44,7 @@ class Threads(SQLModel, table=True):
 
 class Messages(SQLModel, table=True):
     __tablename__ = "messages"
-    
+
     id: Optional[int] = Field(default=None, primary_key=True)
     thread_id: int = Field(foreign_key="threads.id", index=True)
     sender_uuid: str = Field(foreign_key="Users.Uuid")
@@ -51,8 +52,9 @@ class Messages(SQLModel, table=True):
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(), index=True)
     message_index: Optional[int] = None
     reply_to_message_id: Optional[int] = Field(default=None, foreign_key="messages.id")
-    is_deleted: int = Field(default=0)  # 0=false, 1=true
-    
+    is_deleted: int = Field(default=0)  # 0=false, 1=true (hard delete - deprecated)
+    deleted_for_users: str = Field(default="[]")  # JSON array of user UUIDs who deleted this message
+
     # Relationships
     thread: Optional["Threads"] = Relationship(back_populates="messages")
     sender: Optional["Users"] = Relationship(back_populates="messages")

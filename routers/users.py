@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 from db import Session, engine, select, update
 from sqlalchemy import func
 from database.operations import execute_statement, update_fields

@@ -25,7 +25,7 @@ export default function NewMessageView({
   onBack,
   onOpenConversation,
 }: NewMessageViewProps) {
-  const [activeUsers, setActiveUsers] = useState<User[]>([]);
+  const [friendsList, setFriendsList] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -34,33 +34,45 @@ export default function NewMessageView({
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    loadActiveUsers();
+    loadFriends();
   }, []);
 
   useEffect(() => {
-    // Filter users based on search query
+    // Filter friends based on search query
     if (searchQuery.trim() === "") {
-      setFilteredUsers(activeUsers);
+      setFilteredUsers(friendsList);
     } else {
-      const filtered = activeUsers.filter((user) =>
+      const filtered = friendsList.filter((user) =>
         user.username.toLowerCase().includes(searchQuery.toLowerCase())
       );
       setFilteredUsers(filtered);
     }
-  }, [searchQuery, activeUsers]);
+  }, [searchQuery, friendsList]);
 
-  const loadActiveUsers = async () => {
+  const loadFriends = async () => {
     setLoading(true);
     try {
-      const users = await api.getActiveUsers();
-      // Filter out current user from the list
-      const filteredUsers = users.filter(
-        (user: User) => user.username !== currentUsername
-      );
-      setActiveUsers(filteredUsers);
-      setFilteredUsers(filteredUsers);
+      const response = await api.getFriendsList(currentUsername);
+      if (response.success && response.friends) {
+        // Map friends to User format
+        const friends = response.friends.map((friend: any) => ({
+          uuid: friend.uuid || "",
+          username: friend.username,
+          email: friend.email,
+          phone: friend.phone,
+          active: true,
+          isAdmin: false,
+        }));
+        setFriendsList(friends);
+        setFilteredUsers(friends);
+      } else {
+        setFriendsList([]);
+        setFilteredUsers([]);
+      }
     } catch (error: any) {
-      Alert.alert("Error", error.message || "Failed to load users");
+      Alert.alert("Error", error.message || "Failed to load friends");
+      setFriendsList([]);
+      setFilteredUsers([]);
     } finally {
       setLoading(false);
     }
@@ -73,7 +85,7 @@ export default function NewMessageView({
 
   const handleSendMessage = async () => {
     if (!selectedUser) {
-      Alert.alert("Error", "Please select a user to send a message to");
+      Alert.alert("Error", "Please select a friend to send a message to");
       return;
     }
 
@@ -125,12 +137,12 @@ export default function NewMessageView({
       {/* Main content card */}
       <View style={styles.contentWrapper}>
         <View style={styles.contentCard}>
-          {/* User Search/Selection */}
+          {/* Friend Search/Selection */}
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>To:</Text>
             <TextInput
               style={styles.searchInput}
-              placeholder="Search for a user..."
+              placeholder="Search for a friend..."
               placeholderTextColor="#94a3b8"
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -138,7 +150,7 @@ export default function NewMessageView({
             />
           </View>
 
-          {/* User List Dropdown */}
+          {/* Friend List Dropdown */}
           {searchQuery.trim().length > 0 && !selectedUser && (
             <View style={styles.userListContainer}>
               {loading ? (
@@ -152,15 +164,24 @@ export default function NewMessageView({
                   contentContainerStyle={styles.userListContent}
                 />
               ) : (
-                <Text style={styles.noUsersText}>No users found</Text>
+                <View style={styles.noFriendsContainer}>
+                  <Text style={styles.noFriendsText}>
+                    {friendsList.length === 0
+                      ? "You don't have any friends yet. Add friends to start messaging!"
+                      : "No friends match your search"}
+                  </Text>
+                </View>
               )}
             </View>
           )}
 
-          {/* Selected User Display */}
+          {/* Selected Friend Display */}
           {selectedUser && (
             <View style={styles.selectedUserBadge}>
-              <Text style={styles.selectedUserText}>{selectedUser.username}</Text>
+              <View style={styles.selectedUserInfo}>
+                <Text style={styles.selectedUserLabel}>Friend</Text>
+                <Text style={styles.selectedUserText}>{selectedUser.username}</Text>
+              </View>
               <TouchableOpacity
                 onPress={() => {
                   setSelectedUser(null);
@@ -203,6 +224,15 @@ export default function NewMessageView({
               <Text style={styles.sendButtonText}>Send Message</Text>
             )}
           </TouchableOpacity>
+
+          {/* Info Text */}
+          {friendsList.length === 0 && !loading && (
+            <View style={styles.infoBox}>
+              <Text style={styles.infoText}>
+                💡 You can only message friends. Add friends to start conversations!
+              </Text>
+            </View>
+          )}
         </View>
       </View>
     </View>
@@ -325,32 +355,50 @@ const styles = StyleSheet.create({
   loader: {
     padding: 20,
   },
-  noUsersText: {
+  noFriendsContainer: {
+    backgroundColor: "#fef3c7",
+    padding: 16,
+    margin: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#fbbf24",
+  },
+  noFriendsText: {
+    fontSize: 13,
+    color: "#92400e",
     textAlign: "center",
-    padding: 20,
-    color: "#6b7280",
-    fontSize: 14,
+    lineHeight: 18,
   },
   selectedUserBadge: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     backgroundColor: "#dbeafe",
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 20,
-    alignSelf: "flex-start",
+    borderRadius: 12,
     marginBottom: 20,
   },
-  selectedUserText: {
-    fontSize: 14,
-    color: "#1e40af",
-    fontWeight: "600",
-    marginRight: 8,
+  selectedUserInfo: {
+    flex: 1,
   },
-  removeButton: {
+  selectedUserLabel: {
+    fontSize: 11,
+    color: "#3b82f6",
+    fontWeight: "600",
+    textTransform: "uppercase",
+    marginBottom: 2,
+  },
+  selectedUserText: {
     fontSize: 16,
     color: "#1e40af",
     fontWeight: "600",
+  },
+  removeButton: {
+    fontSize: 20,
+    color: "#1e40af",
+    fontWeight: "600",
+    paddingLeft: 12,
   },
   messageInput: {
     backgroundColor: "#f9fafb",
@@ -385,5 +433,19 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  infoBox: {
+    backgroundColor: "#eff6ff",
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+  },
+  infoText: {
+    fontSize: 13,
+    color: "#1e40af",
+    textAlign: "center",
+    lineHeight: 18,
   },
 });

@@ -20,7 +20,7 @@ interface AuthContextType {
   } | null;
   
   // Auth actions
-  login: (username: string, uuid?: string) => void;
+  login: (username: string, uuid: string) => void;
   logout: () => Promise<void>;
   
   // Navigation actions
@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (sessionData) {
         const session = JSON.parse(sessionData);
         setUsername(session.username);
-        setUserUuid(session.userUuid || session.username);
+        setUserUuid(session.userUuid);
         setAuthenticated(true);
         setCurrentView(session.currentView || "home");
         setActiveConversation(session.activeConversation || null);
@@ -104,9 +104,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = (loginUsername: string, uuid?: string) => {
+  const login = (loginUsername: string, uuid: string) => {
     setUsername(loginUsername);
-    setUserUuid(uuid || loginUsername);
+    setUserUuid(uuid);
     setAuthenticated(true);
     setCurrentView("home");
   };
